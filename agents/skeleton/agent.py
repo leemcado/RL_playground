@@ -67,7 +67,7 @@ class MyAgent(StudentAgent):
     # ⑤ 보상 — 내 세포의 사건(events)과 관측(obs)만 쓸 수 있다. 각 (B,)
     #    size_before, size_after, food_mass, white_hole, black_hole, dash_cost, kills, kill_mass, died, won, t
     def reward(self, events: Events, obs: Observation) -> np.ndarray:
-        # TODO: 설계. 아래는 출발점 (청사진 기본 보상: 크기 변화 − 사망 + 승리)
+        # TODO: 설계. 아래는 출발점 (크기 변화/100 − 사망 + 5·승리)
         return (events.size_after - events.size_before) / 100.0 - 1.0 * events.died + 5.0 * events.won
 
 

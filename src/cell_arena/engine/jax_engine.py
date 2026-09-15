@@ -73,7 +73,7 @@ def _food_sizes(key: jax.Array, n: int, cfg: ArenaConfig) -> jax.Array:
 
 
 def spawn_positions(key: jax.Array, cells: Cells, obj_radius: jax.Array, cfg: ArenaConfig) -> jax.Array:
-    """청사진 1.4절 스폰 규칙 (NumpyArenaEngine._spawn_positions 와 같음). 반환 (R, 2)."""
+    """스폰 위치: 모든 세포 시야 밖 (NumpyArenaEngine._spawn_positions 와 같음). 반환 (R, 2)."""
     count, k = obj_radius.shape[0], cfg.spawn_candidates
     k_cand, k_pick = jax.random.split(key)
     cand = jax.random.uniform(k_cand, (count, k, 2), F32, 0.0, cfg.map_size)
@@ -133,7 +133,7 @@ def world_step(
     k_food, k_spawn, k_prio = jax.random.split(key, 3)
     alive0, size_before = cells.alive, cells.size
 
-    # 2.1~2.3 운동
+    # 운동
     dashing = dash & moving & physics.can_dash(cells.size, cfg, jnp) & alive0
     speed = jnp.where(dashing, physics.dash_speed(cells.size, cfg, jnp), physics.base_speed(cells.size, cfg, jnp))
     kap = physics.kappa(cells.size, cfg, jnp) * jnp.where(dashing, cfg.dash_kappa_scale, 1.0)
@@ -141,7 +141,7 @@ def world_step(
     vel = jnp.where(alive0[:, None], cells.vel + (v_target - cells.vel) * kap[:, None], 0.0)
     pos = jnp.where(alive0[:, None], jnp.mod(cells.pos + vel, L), cells.pos)
 
-    # 2.3 돌진 방출 → 세포밥 링버퍼 (방출하지 않는 세포는 범위 밖 인덱스로 보내 drop)
+    # 돌진 방출 → 세포밥 링버퍼 (방출하지 않는 세포는 범위 밖 인덱스로 보내 drop)
     dash_steps = cells.dash_steps + dashing.astype(jnp.int32)
     emit = dashing & (dash_steps % cfg.dash_emit_interval == 0)
     amount = jnp.where(emit, cells.size * physics.dash_emit_frac(cells.size, cfg, jnp), 0.0)
@@ -156,7 +156,7 @@ def world_step(
     o_owner = obj.owner.at[slot].set(jnp.arange(n, dtype=jnp.int32), mode="drop")
     cursor = (world.cursor + jnp.sum(emit)) % cap
 
-    # 1.3 세포 간 포식 (닿으면 큰 쪽이 먹음, 같은 크기면 무작위, 동시 판정)
+    # 세포 간 포식 (닿으면 큰 쪽이 먹음, 같은 크기면 무작위, 동시 판정)
     can_eat = physics.can_eat_matrix(pos, size, alive0, jax.random.uniform(k_prio, (n,)), cfg, jnp)
     eaten, predator = physics.resolve_predation(can_eat, alive0, size, jnp)
     kill_mass = _sum_to(predator, jnp.where(eaten, size, 0.0), n)
@@ -166,7 +166,7 @@ def world_step(
     vel = jnp.where(eaten[:, None], 0.0, vel)
     dashing = dashing & ~eaten
 
-    # 1.2 세포-객체 접촉 (경계면 접촉, 겹치면 큰 세포가 가져감)
+    # 세포-객체 접촉 (경계면 접촉, 겹치면 큰 세포가 가져감)
     t = obj.type
     dist_co = jnp.linalg.norm(physics.torus_delta(o_pos[None], pos[:, None], L, jnp), axis=-1)
     reach = physics.contact_reach(physics.radius(size, cfg, jnp)[:, None], physics.radius(o_size, cfg, jnp)[None], jnp)

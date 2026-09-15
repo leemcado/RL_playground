@@ -1,4 +1,4 @@
-"""크기 의존 물리 공식과 접촉·포식 규칙 (청사진 1.1~1.3, 2, 3.1절).
+"""크기 의존 물리 공식과 접촉·포식 규칙.
 
 모든 함수는 분기 없는 요소별 연산이고 ``xp`` 인자로 배열 모듈을 받는다.
 NumPy 엔진은 ``xp=np``(기본), JAX 엔진은 ``xp=jnp`` 로 같은 코드를 쓴다 — 규칙의 단일 출처.
@@ -32,10 +32,7 @@ def base_speed(size: Array, cfg: ArenaConfig, xp: ModuleType = np) -> Array:
 
 
 def dash_speed(size: Array, cfg: ArenaConfig, xp: ModuleType = np) -> Array:
-    """돌진 속도 v_dash(s) = 1.1 × (s / 100) ^ 0.2 — 클수록 빨라서 쫓는 큰 쪽이 따라잡을 수 있다.
-
-    청사진 원안 v_base(s) × (1 + s/1000) 은 200~500 구간이 1.05~1.11 로 거의 평평해 추격이 성립하지 않았다.
-    """
+    """돌진 속도 v_dash(s) = 1.1 × (s / 100) ^ 0.2 — 클수록 빨라서 쫓는 큰 쪽이 따라잡을 수 있다."""
     return cfg.dash_speed_base * (xp.asarray(size) / cfg.base_size) ** cfg.dash_speed_exponent
 
 
@@ -52,7 +49,7 @@ def kappa(size: Array, cfg: ArenaConfig, xp: ModuleType = np) -> Array:
 def vision_radius(size: Array, cfg: ArenaConfig, xp: ModuleType = np) -> Array:
     """시야 반경 h(s) = min(8 × sqrt(s / 100), 25). 시야는 한 변 2h 인 정사각형.
 
-    radius_scale 과 무관하게 청사진 원래 직경 기준으로 계산한다 (반경을 키워도 시야는 그대로).
+    radius_scale 과 무관하다 (객체 반경을 바꿔도 시야는 그대로).
     """
     return xp.minimum(cfg.vision_coef * xp.sqrt(xp.asarray(size) / cfg.base_size), cfg.vision_cap)
 
@@ -70,7 +67,7 @@ def can_dash(size: Array, cfg: ArenaConfig, xp: ModuleType = np) -> Array:
 def contact_reach(r_a: Array, r_b: Array, xp: ModuleType = np) -> Array:
     """접촉 거리: 두 원의 경계면이 닿으면 접촉 (dist < r_a + r_b).
 
-    청사진 1.3절(작은 쪽 중심이 큰 쪽 원 안)에서 변경. 세포-객체, 세포-세포 모두 이 규칙을 쓴다.
+    세포-객체, 세포-세포 모두 이 규칙을 쓴다.
     """
     return xp.asarray(r_a) + xp.asarray(r_b)
 

@@ -96,7 +96,7 @@ class ArenaViewer:
 
     Args:
         cfg: 게임 규칙
-        scale: 게임유닛당 픽셀 수 (청사진 기준 8)
+        scale: 게임유닛당 픽셀 수
         obs_scale: 관측 이미지 확대 배율
     """
 

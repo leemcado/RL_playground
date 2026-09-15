@@ -62,7 +62,7 @@ class NumpyArenaEngine:
         alive = cells.alive.copy()
         size_before = cells.size.copy()
 
-        # 2.1~2.3 운동: 돌진은 이동 입력이 있고 크기 여유가 있을 때만 적용
+        # 운동: 돌진은 이동 입력이 있고 크기 여유가 있을 때만 적용
         dashing = dash & moving & physics.can_dash(cells.size, cfg) & alive
         speed = np.where(dashing, physics.dash_speed(cells.size, cfg), physics.base_speed(cells.size, cfg))
         k = physics.kappa(cells.size, cfg) * np.where(dashing, cfg.dash_kappa_scale, 1.0)
@@ -93,7 +93,7 @@ class NumpyArenaEngine:
         }
 
     def respawn(self, idx: int) -> None:
-        """죽은 세포를 기본 크기·정지 상태로 모든 시야 밖에 되살린다 (청사진 6절 학습 중 리스폰)."""
+        """죽은 세포를 기본 크기·정지 상태로 모든 시야 밖에 되살린다 (학습 env 리스폰)."""
         cells = self._state.cells
         cells.alive[idx] = False  # 스폰 판정에서 자기 시야 제외
         r = np.atleast_1d(physics.radius(self.cfg.base_size, self.cfg))
@@ -145,7 +145,7 @@ class NumpyArenaEngine:
         return np.minimum(self._rng.exponential(self.cfg.food_mean, n), self.cfg.food_max)
 
     def _spawn_positions(self, cells: CellArrays, obj_radius: np.ndarray) -> np.ndarray:
-        """청사진 1.4절 스폰 규칙.
+        """스폰 규칙.
 
         후보 K개를 균등 샘플 → 살아있는 모든 세포 시야(정사각형, 객체 반지름만큼 여유) 밖인 후보 중
         랜덤 선택. 하나도 없으면 가장 가까운 세포까지 거리가 최대인 후보.
@@ -233,7 +233,7 @@ class NumpyArenaEngine:
         return kills, kill_mass, died
 
     def _resolve_contacts(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """세포-객체 접촉 (청사진 1.2절, 경계면 접촉).
+        """세포-객체 접촉 (경계면 접촉).
 
         - 밥·세포밥: 무조건 흡수, +0.5 × 크기
         - 블랙홀: s > 500 이면 소멸시키고 -250, 아니면 무해
