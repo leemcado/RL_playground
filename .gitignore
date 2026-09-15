@@ -1,0 +1,35 @@
+# 정리한 옛 파일
+trash/
+
+# 학생 제출물 (공개 저장소에 올리지 않는다 — 안내 문서만)
+submissions/*
+!submissions/README.md
+
+# 출력·로그·가중치·녹화
+outputs/
+wandb/
+*.pt
+*.pth
+*.ckpt
+*.npy
+*.mp4
+*.log
+
+# 파이썬 캐시·빌드
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# 가상환경·비밀값·에디터
+.venv/
+venv/
+.env
+.idea/
+.vscode/
+.DS_Store

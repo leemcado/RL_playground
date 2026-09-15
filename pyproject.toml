@@ -1,0 +1,27 @@
+[project]
+name = "cell-arena"
+version = "1.0.0"
+description = "Cell Arena — 강화학습 실습용 토러스 세포 대전 환경"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "pyyaml>=6",
+    "pygame>=2.5",
+    "torch>=2.2",
+    "wandb>=0.16",
+    "imageio-ffmpeg>=0.4",
+    # JAX: Intel Mac 은 0.4.38 이 마지막 판이고, 그 판의 torch(2.2) 는 NumPy 1.x 로 빌드돼 있다
+    "jax>=0.4.38; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+    "jax==0.4.38; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "numpy<2; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+]
+
+[project.optional-dependencies]
+cuda = ["jax[cuda12]>=0.4.38; sys_platform == 'linux'"]  # Linux + NVIDIA GPU: JAX 시뮬레이션을 GPU 에서
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

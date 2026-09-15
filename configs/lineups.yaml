@@ -1,0 +1,16 @@
+# 판 구성 — 대결장 참가자 목록을 이 파일 한 곳에서 관리한다 (위에서부터 세포 순서, 8명까지 권장)
+#
+# 참가자 지정
+#   bronze / silver / gold / diamond     봇 (agents/bots/<이름>.py)
+#   submissions/kim.py                   학생 제출물 — 이름·색·가중치는 그 파일 안의 name / color / weights
+#   submissions/kim.py@kim_v2.pt         가중치 파일을 직접 지정
+#
+# 사용
+#   play         사람(세포 0) 의 상대들 — python scripts/play.py
+#   tournament   대결 참가자 전원     — python scripts/battle.py --lineup tournament --render
+# 새 구성은 `이름: [...]` 을 추가하고 --lineup 이름 으로 부른다.
+# 학생이 학습할 때의 상대는 이 파일이 아니라 각자의 config.yaml 의 opponents 로 정한다.
+
+play: [bronze, bronze, bronze, silver, silver, gold, diamond]
+
+tournament: [diamond, gold, silver, silver, bronze, bronze, bronze]
