@@ -22,6 +22,7 @@ cuda = ["jax[cuda12]>=0.4.38; sys_platform == 'linux'"]  # Linux + NVIDIA GPU: J
 [project.scripts]
 cell-arena-check = "cell_arena.scripts.check_agent:main"
 cell-arena-doctor = "cell_arena.scripts.doctor:main"
+cell-arena-play = "cell_arena.scripts.play:main"
 
 [build-system]
 requires = ["setuptools>=68"]

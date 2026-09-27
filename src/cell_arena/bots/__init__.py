@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-# check_agent / doctor 등 인스트럭터 레포 밖(학생 레포)에서도 practice 상대가 필요한 콘솔 스크립트가 쓰는 기본 구성.
+# check_agent / doctor / play 등 인스트럭터 레포 밖(학생 레포)에서도 practice 상대가 필요한 콘솔 스크립트가 쓰는 기본 구성.
 # configs/lineups.yaml 의 'play' 와 같은 값 — 그건 인스트럭터의 대결·관전용, 이건 패키지에 내장된 기본값.
 DEFAULT_OPPONENTS = ["bronze", "bronze", "bronze", "silver", "silver", "gold", "diamond"]
 

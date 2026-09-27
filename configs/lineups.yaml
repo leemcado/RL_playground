@@ -6,7 +6,7 @@
 #   submissions/kim.py@kim_v2.pt         가중치 파일을 직접 지정
 #
 # 사용
-#   play         사람(세포 0) 의 상대들 — python scripts/play.py
+#   play         사람(세포 0) 의 상대들 — python scripts/play.py --lineup play (기본값은 cell_arena.bots.DEFAULT_OPPONENTS)
 #   tournament   대결 참가자 전원     — python scripts/battle.py --lineup tournament --render
 # 새 구성은 `이름: [...]` 을 추가하고 --lineup 이름 으로 부른다.
 # 학생이 학습할 때의 상대는 이 파일이 아니라 각자의 config.yaml 의 opponents 로 정한다.
