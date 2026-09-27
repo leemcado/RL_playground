@@ -30,7 +30,7 @@ python scripts/check_agent.py agents/skeleton/agent.py  # 제출 전 점검
 python scripts/play.py                                  # 직접 플레이
 ```
 
-제출: `agent.py` 를 `<이름>.py` 로 바꿔 가중치 `<이름>.pt` 와 함께 낸다.
+제출: 학습 전에 `name` 과 `weights` 를 `"<이름>"`, `"<이름>.pt"` 로 바꾼다. 학습이 끝나면 `agent.py` 를 `<이름>.py` 로 바꿔 `<이름>.pt` 와 함께 낸다. 대결장은 `weights` 에 적힌 파일을 불러온다.
 
 ## 게임 규칙
 
