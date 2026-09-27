@@ -14,10 +14,20 @@ from cell_arena.hardware import configure_env
 configure_env()
 
 from cell_arena.agent import Agent, StudentAgent  # noqa: E402
-from cell_arena.core.api import ActionSpec, Events, Observation, ObsSpec, StepOutput  # noqa: E402
+from cell_arena.core.api import (  # noqa: E402
+    IMAGE_CHANNELS,
+    OBJECT_FEATURES,
+    ActionSpec,
+    Events,
+    Observation,
+    ObsSpec,
+    StepOutput,
+)
 from cell_arena.train import Config, load_config, make_env  # noqa: E402
 
 __all__ = [
+    "IMAGE_CHANNELS",
+    "OBJECT_FEATURES",
     "ActionSpec",
     "Agent",
     "Config",

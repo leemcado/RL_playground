@@ -1,7 +1,7 @@
 """pygame 관전 화면 (play env).
 
 - 왼쪽: 전체 맵 (1 게임유닛 = 8×8 도트 → 100×100 맵이 800×800 px)
-- 오른쪽 위: 포커스 세포가 받는 5채널 이미지 관측 (채널별 색으로 합쳐 표시)
+- 오른쪽 위: 포커스 세포가 받는 6채널 이미지 관측 (채널별 색으로 합쳐 표시)
 - 오른쪽 아래: 포커스 세포의 자기 상태, 스텝, 점수판
 
 렌더러는 WorldState 배열만 읽으므로 엔진이 JAX 로 바뀌어도 그대로 쓸 수 있다.
@@ -38,7 +38,8 @@ CELL_COLORS = (
     (170, 210, 90),
 )
 # 이미지 관측 채널별 표시 색 (IMAGE_CHANNELS 순서)
-CHANNEL_COLORS = ((150, 150, 158), (150, 70, 230), (255, 215, 120), (240, 90, 80), (80, 220, 160))
+CHANNEL_COLORS = ((150, 150, 158), (110, 190, 250), (150, 70, 230), (255, 215, 120), (240, 90, 80), (80, 220, 160))
+assert len(CHANNEL_COLORS) == len(IMAGE_CHANNELS)
 
 GRID = (32, 35, 48)
 VISION = (90, 100, 140)
@@ -83,7 +84,7 @@ def _rgb(color: tuple[int, int, int] | list[int] | str) -> tuple[int, int, int]:
 
 
 def _composite(image: np.ndarray) -> np.ndarray:
-    """5채널 0/1 이미지 (5, R, R) → 표시용 RGB (R, R, 3). 뒤 채널이 위에 그려진다 (자기 세포가 맨 위)."""
+    """6채널 0/1 이미지 (6, R, R) → 표시용 RGB (R, R, 3). 뒤 채널이 위에 그려진다 (자기 세포가 맨 위)."""
     rgb = np.empty((*image.shape[1:], 3), dtype=np.uint8)
     rgb[:] = BACKGROUND
     for channel, color in zip(image, CHANNEL_COLORS):
@@ -236,15 +237,18 @@ class ArenaViewer:
         dead = "" if state.cells.alive[focus] else "  (eliminated)"
         self._text(f"VIEW  {hud.names[focus]}{dead}", left, y)
         y += 18
-        self._text(f"image (5,{VIEW_RESOLUTION},{VIEW_RESOLUTION}) 0/1   view {2 * h:.1f} x {2 * h:.1f} u",
+        self._text(f"image ({len(IMAGE_CHANNELS)},{VIEW_RESOLUTION},{VIEW_RESOLUTION}) 0/1   view {2 * h:.1f} x {2 * h:.1f} u",
                    left, y, DIM, self.small)
         y += 18
         x = left
         for name, color in zip(IMAGE_CHANNELS, CHANNEL_COLORS):
-            name = name.removesuffix("_hole").removeprefix("other_")  # food black white cell self
+            name = name.removesuffix("_hole").removeprefix("other_")  # food cell_food black white cell self
+            width = 12 + self.small.size(name)[0]
+            if x + width > left + self.obs_px:  # 패널 폭을 넘으면 다음 줄
+                x, y = left, y + 16
             pygame.draw.rect(self.screen, color, (x, y + 3, 9, 9))
             self._text(name, x + 12, y, DIM, self.small)
-            x += 12 + self.small.size(name)[0] + 12
+            x += width + 12
         y += 20
         view = _composite(semantic_image(state, focus, self.cfg, VIEW_RESOLUTION))
         img = pygame.surfarray.make_surface(np.ascontiguousarray(view.swapaxes(0, 1)))

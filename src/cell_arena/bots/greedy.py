@@ -57,7 +57,7 @@ class GreedyBot(Agent):
         dx, dy, s = obs.objects[..., 0], obs.objects[..., 1], obs.objects[..., 2]
         d = DIAMETER_SCALE * np.sqrt(s / 100.0)  # 상대 직경
         r, theta = np.hypot(dx, dy), np.arctan2(dy, dx)
-        kind = np.argmax(obs.objects[..., 3:7], axis=-1)  # 0 밥, 1 블랙홀, 2 화이트홀, 3 세포
+        kind = np.argmax(obs.objects[..., 3:8], axis=-1)  # 0 밥, 1 세포밥, 2 블랙홀, 3 화이트홀, 4 세포
         gap = np.where(obs.mask, r - 0.5 * (d + d_me), np.inf)  # 경계면 사이 거리
         ratio = s / s_me[:, None]  # s_other / s_me
 
@@ -66,10 +66,10 @@ class GreedyBot(Agent):
             j = np.argmin(g, axis=1)
             return theta[rows, j], g[rows, j]
 
-        th_threat, g_threat = nearest((kind == 3) & (ratio > 1.0))
-        th_black, g_black = nearest(kind == 1)
-        th_prey, g_prey = nearest((kind == 3) & (ratio < 1.0))
-        th_food, g_food = nearest((kind == 0) | ((kind == 2) & (s_me[:, None] < 500)))
+        th_threat, g_threat = nearest((kind == 4) & (ratio > 1.0))
+        th_black, g_black = nearest(kind == 2)
+        th_prey, g_prey = nearest((kind == 4) & (ratio < 1.0))
+        th_food, g_food = nearest((kind <= 1) | ((kind == 3) & (s_me[:, None] < 500)))
 
         turn = self.rng.random(b) < 0.05
         self.heading = self.heading + np.where(turn, self.rng.normal(0.0, 1.0, b), 0.0)

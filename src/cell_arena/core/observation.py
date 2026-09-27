@@ -2,7 +2,7 @@
 
 - ``self_state``: 자기 상태 [크기, x, y, v_x, v_y]
 - ``object_list``: 시야 안 객체를 가까운 순으로 M개 + mask (state 모드). 크기는 직경이 아니라 원시 크기로 준다
-- ``semantic_image``: 타입별 5채널 0/1 이미지 (image 모드). ``disk_cover`` 는 np / jnp 공용
+- ``semantic_image``: 타입별 6채널 0/1 이미지 (image 모드). ``disk_cover`` 는 np / jnp 공용
 
 다른 세포의 속도는 넣지 않는다 (움직임은 여러 프레임을 보고 추론).
 """
@@ -15,17 +15,24 @@ from typing import Any
 import numpy as np
 
 from cell_arena.core import physics
-from cell_arena.core.api import IMAGE_CHANNEL_CAPS, ObsSpec
-from cell_arena.core.config import BLACK_HOLE, WHITE_HOLE, ArenaConfig
+from cell_arena.core.api import IMAGE_CHANNEL_CAPS, IMAGE_CHANNELS, OBJECT_FEATURES, ObsSpec
+from cell_arena.core.config import BLACK_HOLE, CELL_FOOD, WHITE_HOLE, ArenaConfig
 from cell_arena.core.state import CellArrays, WorldState
 
-# 객체 타입 → 관측 종류: 0 밥(세포밥 포함), 1 블랙홀, 2 화이트홀, 3 다른 세포, 4 자기 (이미지 채널 번호와 같다)
-KIND_CELL, KIND_SELF = 3, 4
+# 객체 타입 → 관측 종류: 0 밥, 1 세포밥, 2 블랙홀, 3 화이트홀, 4 다른 세포, 5 자기
+# (이미지 채널 번호, state 원핫 위치와 같다)
+KIND_CELL, KIND_SELF = 4, 5
+NUM_OBJECT_KINDS = KIND_SELF  # state 원핫에 들어가는 종류 수 (자기 제외)
+FEAT_KIND = len(OBJECT_FEATURES) - NUM_OBJECT_KINDS  # 원핫이 시작하는 열 (dx, dy, 크기 다음)
+assert IMAGE_CHANNELS[KIND_CELL] == "other_cell" and IMAGE_CHANNELS[KIND_SELF] == "self"
+assert OBJECT_FEATURES[FEAT_KIND:] == ("is_food", "is_cell_food", "is_black_hole", "is_white_hole", "is_cell")
 
 
 def object_kind(obj_type: Any, xp: ModuleType = np) -> Any:
-    """객체 타입 배열 → 관측 종류 (세포밥은 밥과 규칙이 같아 밥으로 합친다)."""
-    return xp.where(obj_type == BLACK_HOLE, 1, xp.where(obj_type == WHITE_HOLE, 2, 0))
+    """객체 타입 배열 → 관측 종류."""
+    return xp.where(
+        obj_type == CELL_FOOD, 1, xp.where(obj_type == BLACK_HOLE, 2, xp.where(obj_type == WHITE_HOLE, 3, 0))
+    )
 
 
 def self_state(cells: CellArrays, idx: int) -> np.ndarray:
@@ -58,17 +65,17 @@ def object_list(state: WorldState, idx: int, cfg: ArenaConfig, max_objects: int)
     """시야 안 객체(밥·홀·다른 세포)를 가까운 순으로 최대 M개.
 
     Returns:
-        objects (M, 7) float32 [dx, dy, 크기, is_food, is_black_hole, is_white_hole, is_cell], mask (M,) bool
+        objects (M, 8) float32 [dx, dy, 크기, is_food, is_cell_food, is_black_hole, is_white_hole, is_cell], mask (M,) bool
     """
     delta, _, size, kind, dist, _ = _candidates(state, idx, cfg)
     others = kind != KIND_SELF
     delta, size, kind, dist = delta[others], size[others], kind[others], dist[others]
     order = np.argsort(dist, kind="stable")[:max_objects]
     k = order.size
-    feats = np.zeros((max_objects, 7), dtype=np.float32)
+    feats = np.zeros((max_objects, len(OBJECT_FEATURES)), dtype=np.float32)
     feats[:k, 0:2] = delta[order]
     feats[:k, 2] = size[order]
-    feats[np.arange(k), 3 + kind[order]] = 1.0
+    feats[np.arange(k), FEAT_KIND + kind[order]] = 1.0
     return feats, np.arange(max_objects) < k
 
 
@@ -96,12 +103,12 @@ def disk_cover(delta: Any, radius: Any, valid: Any, h: Any, res: int, xp: Module
 
 
 def semantic_image(state: WorldState, idx: int, cfg: ArenaConfig, resolution: int) -> np.ndarray:
-    """자기 시야의 타입별 5채널 이미지 (5, R, R) uint8 0/1 — api.IMAGE_CHANNELS 순서.
+    """자기 시야의 타입별 6채널 이미지 (6, R, R) uint8 0/1 — api.IMAGE_CHANNELS 순서.
 
     채널마다 가까운 순으로 IMAGE_CHANNEL_CAPS 개까지 그린다 (JAX 판과 같은 규칙).
     """
     delta, radius, _, kind, dist, h = _candidates(state, idx, cfg)
-    image = np.zeros((5, resolution, resolution), dtype=np.uint8)
+    image = np.zeros((len(IMAGE_CHANNELS), resolution, resolution), dtype=np.uint8)
     for c, cap in enumerate(IMAGE_CHANNEL_CAPS):
         sel = np.flatnonzero(kind == c)
         sel = sel[np.argsort(dist[sel], kind="stable")[:cap]]

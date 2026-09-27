@@ -13,38 +13,70 @@ import wandb
 from cell_arena import ActionSpec, Config, Events, Observation, ObsSpec, StudentAgent, load_config, make_env
 
 
+class FrameStack:
+    """최근 k 프레임 스택. (B, ...) -> (B, k, ...)"""
+
+    def __init__(self, k: int) -> None:
+        self.k = k
+        self.frames: torch.Tensor | None = None
+        self.fresh: torch.Tensor | None = None
+
+    def reset(self, done: np.ndarray) -> None:
+        if self.frames is None or len(done) != len(self.frames):
+            self.frames = None
+            return
+        self.fresh |= torch.as_tensor(done, device=self.fresh.device)
+
+    def push(self, x: torch.Tensor) -> torch.Tensor:
+        if self.frames is None or self.frames.shape[0] != x.shape[0] or self.frames.device != x.device:
+            self.frames = x.unsqueeze(1).repeat_interleave(self.k, dim=1)
+            self.fresh = torch.zeros(x.shape[0], dtype=torch.bool, device=x.device)
+        else:
+            self.frames = self.peek(x)
+            self.fresh[:] = False
+        return self.frames
+
+    # push 와 같지만 저장하지 않음. final_obs 로 다음 상태를 만들 때 사용
+    def peek(self, x: torch.Tensor) -> torch.Tensor:
+        out = torch.cat([self.frames[:, 1:], x.unsqueeze(1)], dim=1)
+        out[self.fresh] = x[self.fresh].unsqueeze(1)  # 방금 리셋된 원소는 x 로 채움
+        return out
+
+
 class MyAgent(StudentAgent):
     # 0. 기본명세. name, weights 는 본인 이름으로
     name = "my_agent"
     color = (90, 160, 250)  # (R, G, B)
-    weights = "my_agent.pt"  # 대결장은 이 파일을 불러온다
+    weights = "my_agent.pt"  # 대결장은 이 파일을 불러옴
 
     # 1. 관측 / 액션 형태
     obs_spec = ObsSpec(mode="image", resolution=64)
     # obs_spec = ObsSpec(mode="state", max_objects=32)
-    #   image: self_state (B, 5), image (B, 5, R, R)                R = resolution
-    #   state: self_state (B, 5), objects (B, M, 7), mask (B, M)    M = max_objects
+    #   image: self_state (B, 5), image (B, 6, R, R)                R = resolution
+    #   state: self_state (B, 5), objects (B, M, 8), mask (B, M)    M = max_objects
 
     action_spec = ActionSpec(mode="discrete")
     # action_spec = ActionSpec(mode="continuous")
     #   discrete:   (B,)    정수 0~17
-    #   continuous: (B, 3)  float [θ, move, dash]
+    #   continuous: (B, 3)  float [theta, move, dash]
 
-    # 2. 모델. 구조는 self.cfg 만으로 정해져야 한다 (load 할 때 다시 호출됨)
+    # 2. 모델. 구조는 self.cfg 만으로 정해져야 함 (load 할 때 다시 호출됨)
     def setup(self) -> None:
+        self.frames = FrameStack(self.cfg.get("frame_stack", 4))
         raise NotImplementedError
 
-    # 3. 관측(NumPy) => 신경망 입력
+    # 3. 관측(NumPy) -> 신경망 입력. 기본은 이미지 k 프레임 (B, k*6, R, R)
     def preprocess(self, obs: Observation) -> torch.Tensor:
-        raise NotImplementedError
+        img = torch.as_tensor(obs.image, device=self.device)
+        return self.frames.push(img).flatten(1, 2)
 
     # 4. 행동 선택. 대결에서는 explore=False
     def policy(self, x: torch.Tensor, explore: bool) -> np.ndarray:
         raise NotImplementedError
 
-    # (선택) 프레임 스택·RNN 상태 초기화. done=True 인 원소만
+    # 프레임 스택 초기화. done=True 인 원소만
     def reset(self, done: np.ndarray) -> None:
-        pass
+        self.frames.reset(done)
 
     # 5. 보상
     def reward(self, events: Events, obs: Observation) -> np.ndarray:
@@ -73,7 +105,7 @@ def train(cfg: Config) -> None:
         reward = agent.reward(out.events, out.final_obs)
         samples += cfg.num_envs
 
-        # TODO: 전이 저장, 업데이트
+        # TODO: 전이 저장, 업데이트. 다음 상태는 agent.frames.peek 로 만듦 (preprocess 를 또 부르면 프레임이 두 번 쌓임)
 
         episode_done = out.terminated | out.truncated
         ep_reward += reward

@@ -11,7 +11,7 @@ import jax.numpy as jnp
 from cell_arena.core import physics
 from cell_arena.core.api import IMAGE_CHANNEL_CAPS, ObsSpec
 from cell_arena.core.config import ArenaConfig
-from cell_arena.core.observation import KIND_CELL, KIND_SELF, disk_cover, object_kind
+from cell_arena.core.observation import KIND_CELL, KIND_SELF, NUM_OBJECT_KINDS, disk_cover, object_kind
 from cell_arena.engine.jax_engine import F32, World
 
 
@@ -46,15 +46,15 @@ def _nearest(dist: jax.Array, select: jax.Array, k: int) -> tuple[jax.Array, jax
 
 
 def object_list(world: World, idx: int, cfg: ArenaConfig, max_objects: int) -> tuple[jax.Array, jax.Array]:
-    """시야 안 객체 가까운 순 최대 M개. 반환 (M, 7) 피처, (M,) mask."""
+    """시야 안 객체 가까운 순 최대 M개. 반환 (M, 8) 피처, (M,) mask."""
     delta, _, size, kind, dist, visible, _ = _candidates(world, idx, cfg)
     order, valid = _nearest(dist, visible & (kind != KIND_SELF), max_objects)
-    feats = jnp.concatenate([delta[order], size[order][:, None], jax.nn.one_hot(kind[order], 4, dtype=F32)], -1)
+    feats = jnp.concatenate([delta[order], size[order][:, None], jax.nn.one_hot(kind[order], NUM_OBJECT_KINDS, dtype=F32)], -1)
     return jnp.where(valid[:, None], feats, 0.0).astype(F32), valid
 
 
 def semantic_image(world: World, idx: int, cfg: ArenaConfig, resolution: int) -> jax.Array:
-    """타입별 5채널 이미지 (5, R, R) uint8 — 채널마다 가까운 순 IMAGE_CHANNEL_CAPS 개."""
+    """타입별 6채널 이미지 (6, R, R) uint8 — 채널마다 가까운 순 IMAGE_CHANNEL_CAPS 개."""
     delta, radius, _, kind, dist, visible, h = _candidates(world, idx, cfg)
     channels = []
     for c, cap in enumerate(IMAGE_CHANNEL_CAPS):

@@ -21,12 +21,13 @@ ObsMode = Literal["state", "image"]
 ActionMode = Literal["discrete", "multibinary", "continuous"]
 
 SELF_FEATURES = ("size", "x", "y", "v_x", "v_y")
-OBJECT_FEATURES = ("dx", "dy", "size", "is_food", "is_black_hole", "is_white_hole", "is_cell")
-IMAGE_CHANNELS = ("food", "black_hole", "white_hole", "other_cell", "self")
+OBJECT_FEATURES = ("dx", "dy", "size", "is_food", "is_cell_food", "is_black_hole", "is_white_hole", "is_cell")
+IMAGE_CHANNELS = ("food", "cell_food", "black_hole", "white_hole", "other_cell", "self")
 NUM_DISCRETE_ACTIONS = 18
 # 이미지 채널별로 그리는 객체 수 상한 (가까운 순). JAX 판의 고정 shape 를 위한 값으로 두 엔진이 같은 규칙을 쓴다.
-# 밥은 시야가 가장 넓을 때(한 변 50) 보통 40~120개, 홀은 종류별 15개가 전부, 세포는 8명 판 기준
-IMAGE_CHANNEL_CAPS = (128, 16, 16, 16, 1)
+# 밥은 시야가 가장 넓을 때(한 변 50) 보통 40~120개, 세포밥은 돌진이 몰리면 많아져 밥과 같게, 홀은 종류별 15개가 전부,
+# 세포는 8명 판 기준
+IMAGE_CHANNEL_CAPS = (128, 128, 16, 16, 16, 1)
 
 
 @dataclass(frozen=True)
@@ -34,7 +35,7 @@ class ObsSpec:
     """에이전트가 받을 관측 형태. 에이전트가 선언하고 env 가 맞춰서 만든다.
 
     Attributes:
-        mode: "state" = 거리순 객체 목록, "image" = 타입별 5채널 0/1 이미지. 둘 다 자기 상태 벡터를 함께 준다
+        mode: "state" = 거리순 객체 목록, "image" = 타입별 6채널 0/1 이미지. 둘 다 자기 상태 벡터를 함께 준다
         max_objects: state 모드 객체 수 M (가까운 순, 부족분은 0 패딩 + mask)
         resolution: image 모드 해상도 R (시야 정사각형을 R×R 로)
     """
@@ -77,9 +78,9 @@ class Observation:
 
     Attributes:
         self_state: (B, 5) float32 — SELF_FEATURES [크기, x, y, v_x, v_y] 원시 값 (x, y 는 맵 좌표 0~100)
-        objects: (B, M, 7) float32 — state 모드. OBJECT_FEATURES [dx, dy, 크기, 타입 원핫 4]
+        objects: (B, M, 8) float32 — state 모드. OBJECT_FEATURES [dx, dy, 크기, 타입 원핫 5]
         mask: (B, M) bool — state 모드. 실제 객체 자리 True
-        image: (B, 5, R, R) uint8 0/1 — image 모드. IMAGE_CHANNELS 순서, [채널, y, x]
+        image: (B, 6, R, R) uint8 0/1 — image 모드. IMAGE_CHANNELS 순서, [채널, y, x]
     """
 
     self_state: np.ndarray

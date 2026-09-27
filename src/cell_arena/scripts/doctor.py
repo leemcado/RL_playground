@@ -24,6 +24,7 @@ from functools import partial
 import numpy as np
 
 import cell_arena  # noqa: F401 — 환경 변수 설정 (jax 를 부르기 전에)
+from cell_arena.core.api import IMAGE_CHANNELS
 from cell_arena.hardware import jax_status, torch_device
 
 INTEL_MAC = platform.system() == "Darwin" and platform.machine() == "x86_64"
@@ -63,9 +64,9 @@ def devices() -> bool:
         import torch
 
         dev = torch_device()
-        net = torch.nn.Sequential(torch.nn.Conv2d(5, 16, 4, 2), torch.nn.ReLU(), torch.nn.Flatten(),
+        net = torch.nn.Sequential(torch.nn.Conv2d(len(IMAGE_CHANNELS), 16, 4, 2), torch.nn.ReLU(), torch.nn.Flatten(),
                                   torch.nn.LazyLinear(18)).to(dev)
-        x = torch.rand(64, 5, 64, 64, device=dev)
+        x = torch.rand(64, len(IMAGE_CHANNELS), 64, 64, device=dev)
         start = time.perf_counter()
         for _ in range(5):
             net(x).square().mean().backward()
