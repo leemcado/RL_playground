@@ -19,6 +19,7 @@ API 설명: agents/skeleton/README.md
 from __future__ import annotations
 
 import argparse
+import time
 from pathlib import Path
 
 import numpy as np
@@ -29,34 +30,27 @@ from cell_arena import ActionSpec, Config, Events, Observation, ObsSpec, Student
 
 
 class MyAgent(StudentAgent):
-    # ⓪ 대결에 나갈 이름·색·가중치 파일 (가중치는 이 파일과 같은 폴더에 저장되고 대결 때 여기서 불러온다)
+    # ⓪ 이름·색·가중치 파일
     name = "my_agent"
     color = (90, 160, 250)  # (R, G, B) 또는 "#5aa0fa"
     weights = "my_agent.pt"
 
     # ① 입출력 형태
-    #   관측  "state": self_state (B, 5) + objects (B, M, 7) + mask (B, M)
-    #         "image": self_state (B, 5) + image (B, 5, R, R) uint8 0/1 — [food, black_hole, white_hole, other_cell, self]
-    #   액션  "discrete": (B,) ∈ [0, 18)  /  "multibinary": (B, 5)  /  "continuous": (B, 3) [θ, move, dash]
+    #   obs    state: self_state(B,5) + objects(B,M,7) + mask(B,M)  /  image: self_state(B,5) + image(B,5,R,R)
+    #   action discrete(B,)∈[0,18)  /  multibinary(B,5)  /  continuous(B,3)[θ,move,dash]
     obs_spec = ObsSpec(mode="state", max_objects=32)
     action_spec = ActionSpec(mode="discrete")
 
-    # ② 모델 — self.cfg (config.yaml), self.device (cuda > mps > cpu) 가 준비된 뒤 호출된다.
-    #    속성으로 둔 torch.nn.Module 은 모두 save() 에 저장되고, load() 는 여기서 모델을 다시 만든 뒤 가중치를 채운다.
+    # ② 모델 — self.cfg, self.device 사용 가능. torch.nn.Module 속성은 자동 저장·복원된다
     def setup(self) -> None:
-        # TODO: 인코더 — preprocess() 의 출력 → 특징 벡터 (MLP, CNN, ...)
-        # TODO: 머리 — DQN: Q(s, ·) / Dueling DQN: V(s) + A(s, ·) / PPO: 정책 π(·|s) + 가치 V(s)
-        #   예) self.net = MyNetwork(...).to(self.device)
+        # TODO: 인코더 + 알고리즘 머리 (DQN: Q / Dueling: V+A / PPO: 정책+가치)
         raise NotImplementedError("setup(): 인코더와 머리를 만든다")
 
-    # ③ 전처리·피처 엔지니어링 — 관측 (NumPy, 배치 우선) → 신경망 입력 (torch.Tensor, self.device)
-    #    - 원시 값이라 스케일이 제각각이다 (크기 100~4000, 좌표 0~100, 속도 약 ±2, 객체 dx·dy 는 시야 ±25)
-    #    - 다른 세포의 속도는 관측에 없다 → 여러 프레임을 쌓거나 RNN (기억은 reset 에서 지운다)
-    #    - objects 는 거리순이라 가까운 순위가 바뀌면 같은 객체가 다른 자리로 옮겨 간다
+    # ③ 전처리 — 관측(NumPy) → 신경망 입력(torch.Tensor). 스케일 제각각·속도 정보 없음 (README 참고)
     def preprocess(self, obs: Observation) -> torch.Tensor:
         raise NotImplementedError("preprocess(): 관측 → 신경망 입력")
 
-    # ④ 행동 선택 — explore=True: 학습 중 탐색 (ε-greedy, 확률적 샘플링 ...), False: 대결에서 쓰는 행동
+    # ④ 행동 선택 — explore=True: 탐색, False: 대결에서 쓰는 행동
     def policy(self, x: torch.Tensor, explore: bool) -> np.ndarray:
         raise NotImplementedError("policy(): 신경망 입력 → 행동")
 
@@ -64,42 +58,58 @@ class MyAgent(StudentAgent):
     def reset(self, done: np.ndarray) -> None:
         pass
 
-    # ⑤ 보상 — 내 세포의 사건(events)과 관측(obs)만 쓸 수 있다. 각 (B,)
-    #    size_before, size_after, food_mass, white_hole, black_hole, dash_cost, kills, kill_mass, died, won, t
+    # ⑤ 보상 — events 필드는 README 참고. 각 (B,)
     def reward(self, events: Events, obs: Observation) -> np.ndarray:
-        # TODO: 설계. 아래는 출발점 (크기 변화/100 − 사망 + 5·승리)
+        # TODO: 설계. 아래는 출발점
         return (events.size_after - events.size_before) / 100.0 - 1.0 * events.died + 5.0 * events.won
 
 
 # ⑥ 학습 루프 — 데이터 흐름과 로그를 직접 짠다
 def train(cfg: Config) -> None:
-    agent = MyAgent(cfg)  # 장치를 고르려면 MyAgent(cfg, device="cpu")
-    env = make_env(cfg, agent)  # config.yaml 의 opponents / num_envs / max_steps / seed, 하드웨어는 자동
+    agent = MyAgent(cfg)
+    env = make_env(cfg, agent)
     run = wandb.init(project="cell-arena", name=agent.name, config=cfg.to_dict())
-    # TODO: 옵티마이저, 버퍼 (DQN: replay buffer / PPO: rollout buffer)
+    # TODO: 옵티마이저, 버퍼 (replay / rollout)
+
+    # 기본 로깅 — 필요한 지표 자유롭게 추가
+    ep_reward = np.zeros(cfg.num_envs)
+    recent_returns: list[float] = []
+    log_every = 10_000
+    next_log = log_every
+    start_time = time.time()
 
     obs = env.reset()
     agent.reset(np.ones(cfg.num_envs, dtype=bool))
     samples = 0
     while samples < cfg.total_samples:
-        action = agent.act(obs, explore=True)  # PPO 처럼 log π(a|s)·V(s) 도 필요하면 신경망을 직접 부른다
+        action = agent.act(obs, explore=True)
         out = env.step(action)
-        reward = agent.reward(out.events, out.final_obs)  # noqa: F841
+        reward = agent.reward(out.events, out.final_obs)
         samples += cfg.num_envs
 
-        # TODO: 전이 저장 — (obs, action, reward, out.final_obs, out.terminated, out.truncated)
-        #   terminated : 누군가 승리 크기(4000) 도달 → 게임 끝. 다음 상태 가치로 부트스트랩하지 않는다
-        #   truncated  : max_steps 도달 → 잘렸을 뿐이다. out.final_obs 로 부트스트랩한다
-        #   events.died: 내가 먹혀도 에피소드는 계속된다 (곧바로 시야 밖에서 크기 100 으로 리스폰)
-        #   out.obs 는 다음 행동용 — 끝난 env 는 이미 새 에피소드의 첫 관측이다
-        # TODO: 업데이트 — DQN: 미니배치 샘플·타깃 네트워크 동기화·ε 스케줄 / PPO: 롤아웃이 차면 GAE → 여러 에폭
-        # TODO: 로그 — 무엇을 볼지 정해서 run.log({...}, step=samples)
-        #   예) 에피소드 보상·길이, 최종 크기, 사망 횟수, 손실, Q 값, 엔트로피, 초당 샘플 수 ...
+        # TODO: 전이 저장 (obs, action, reward, out.final_obs, terminated, truncated — 의미는 README)
+        # TODO: 업데이트 (미니배치·타깃 네트워크 / GAE·에폭 등)
 
-        agent.reset(out.terminated | out.truncated | out.events.died)  # 새 에피소드·리스폰 → 기억 초기화
+        episode_done = out.terminated | out.truncated
+        ep_reward += reward
+        recent_returns.extend(ep_reward[episode_done].tolist())
+        recent_returns[:-200] = []
+        ep_reward[episode_done] = 0.0
+
+        if samples >= next_log:
+            next_log += log_every
+            run.log({
+                "train/reward_step": float(reward.mean()),
+                "train/episode_return": float(np.mean(recent_returns)) if recent_returns else float("nan"),
+                "train/size": float(out.final_obs.self_state[:, 0].mean()),
+                "train/deaths": int(out.events.died.sum()),
+                "train/samples_per_sec": samples / (time.time() - start_time),
+            }, step=samples)
+
+        agent.reset(episode_done | out.events.died)
         obs = out.obs
 
-    agent.save()  # 이 파일 폴더의 weights 로 저장 (중간 저장은 agent.save("경로.pt"))
+    agent.save()
     run.finish()
 
 

@@ -19,6 +19,10 @@ dependencies = [
 [project.optional-dependencies]
 cuda = ["jax[cuda12]>=0.4.38; sys_platform == 'linux'"]  # Linux + NVIDIA GPU: JAX 시뮬레이션을 GPU 에서
 
+[project.scripts]
+cell-arena-check = "cell_arena.scripts.check_agent:main"
+cell-arena-doctor = "cell_arena.scripts.doctor:main"
+
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"

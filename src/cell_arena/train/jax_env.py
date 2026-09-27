@@ -1,7 +1,7 @@
 """JAX 학습 env — NumpyTrainEnv 와 같은 입출력·규칙, 월드 진행과 관측 생성은 jit(vmap(step)).
 
 - 모든 env 의 규칙 진행·관측 생성은 jit 한 번으로 동시에 한다 (CPU / GPU).
-- 상대는 학생 에이전트와 같은 Agent 인스턴스다 (agents/bots/ 의 봇, 다른 에이전트 파일).
+- 상대는 학생 에이전트와 같은 Agent 인스턴스다 (cell_arena.bots 의 봇, 다른 에이전트 파일).
   env 가 상대마다 그 에이전트의 ObsSpec 으로 관측을 만들어 주고, 호스트에서 상대의 act 를 배치로 호출한다.
 - 관측은 state / image 모두 (에이전트마다 자기 ObsSpec).
 - 에피소드 규칙은 NumpyTrainEnv 와 같다: 어떤 세포든 승리 크기 도달 → terminated, max_steps → truncated,

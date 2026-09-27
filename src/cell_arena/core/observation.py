@@ -1,7 +1,7 @@
 """관측 생성 (NumPy). JAX 판은 engine/jax_observation.py — 같은 규칙, 같은 결과.
 
 - ``self_state``: 자기 상태 [크기, x, y, v_x, v_y]
-- ``object_list``: 시야 안 객체를 가까운 순으로 M개 + mask (state 모드)
+- ``object_list``: 시야 안 객체를 가까운 순으로 M개 + mask (state 모드). 크기는 직경이 아니라 원시 크기로 준다
 - ``semantic_image``: 타입별 5채널 0/1 이미지 (image 모드). ``disk_cover`` 는 np / jnp 공용
 
 다른 세포의 속도는 넣지 않는다 (움직임은 여러 프레임을 보고 추론).
@@ -37,36 +37,37 @@ def self_state(cells: CellArrays, idx: int) -> np.ndarray:
 
 
 def _candidates(state: WorldState, idx: int, cfg: ArenaConfig) -> tuple[np.ndarray, ...]:
-    """시야에 일부라도 들어오는 모든 객체·세포: 변위 (K, 2), 반지름, 종류, 거리, 시야 반경 h."""
+    """시야에 일부라도 들어오는 모든 객체·세포: 변위 (K, 2), 반지름, 크기, 종류, 거리, 시야 반경 h."""
     cells, obj = state.cells, state.objects
     center = cells.pos[idx]
     h = float(physics.vision_radius(cells.size[idx], cfg))
     d_obj = physics.torus_delta(obj.pos, center, cfg.map_size)
     d_cell = physics.torus_delta(cells.pos, center, cfg.map_size)
     delta = np.concatenate([d_obj, d_cell])
-    radius = np.concatenate([physics.radius(obj.size, cfg), physics.radius(cells.size, cfg)])
+    size = np.concatenate([obj.size, cells.size])
+    radius = physics.radius(size, cfg)
     kind = np.concatenate([object_kind(obj.type), np.full(cells.size.shape[0], KIND_CELL)])
     kind[obj.size.shape[0] + idx] = KIND_SELF
     alive = np.concatenate([obj.alive, cells.alive])
     visible = alive & (np.abs(delta) < (h + radius)[:, None]).all(axis=-1)
     dist = np.linalg.norm(delta, axis=-1)
-    return delta[visible], radius[visible], kind[visible], dist[visible], h
+    return delta[visible], radius[visible], size[visible], kind[visible], dist[visible], h
 
 
 def object_list(state: WorldState, idx: int, cfg: ArenaConfig, max_objects: int) -> tuple[np.ndarray, np.ndarray]:
     """시야 안 객체(밥·홀·다른 세포)를 가까운 순으로 최대 M개.
 
     Returns:
-        objects (M, 7) float32 [dx, dy, 직경, is_food, is_black_hole, is_white_hole, is_cell], mask (M,) bool
+        objects (M, 7) float32 [dx, dy, 크기, is_food, is_black_hole, is_white_hole, is_cell], mask (M,) bool
     """
-    delta, radius, kind, dist, _ = _candidates(state, idx, cfg)
+    delta, _, size, kind, dist, _ = _candidates(state, idx, cfg)
     others = kind != KIND_SELF
-    delta, radius, kind, dist = delta[others], radius[others], kind[others], dist[others]
+    delta, size, kind, dist = delta[others], size[others], kind[others], dist[others]
     order = np.argsort(dist, kind="stable")[:max_objects]
     k = order.size
     feats = np.zeros((max_objects, 7), dtype=np.float32)
     feats[:k, 0:2] = delta[order]
-    feats[:k, 2] = 2.0 * radius[order]
+    feats[:k, 2] = size[order]
     feats[np.arange(k), 3 + kind[order]] = 1.0
     return feats, np.arange(max_objects) < k
 
@@ -99,7 +100,7 @@ def semantic_image(state: WorldState, idx: int, cfg: ArenaConfig, resolution: in
 
     채널마다 가까운 순으로 IMAGE_CHANNEL_CAPS 개까지 그린다 (JAX 판과 같은 규칙).
     """
-    delta, radius, kind, dist, h = _candidates(state, idx, cfg)
+    delta, radius, _, kind, dist, h = _candidates(state, idx, cfg)
     image = np.zeros((5, resolution, resolution), dtype=np.uint8)
     for c, cap in enumerate(IMAGE_CHANNEL_CAPS):
         sel = np.flatnonzero(kind == c)

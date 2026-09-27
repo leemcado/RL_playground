@@ -15,8 +15,8 @@ DIAMETER_SCALE = 2.0  # 규칙: 직경 d(s) = 2 × √(s/100)
 class GreedyBot(Agent):
     """우선순위: 위협 도주 > 블랙홀 회피(크기 500 초과) > 먹이 세포 추격 > 화이트홀(500 미만)·밥 > 배회.
 
-    자기 관측(자기 상태 + 시야 안 객체)만 쓴다. 다른 세포와의 크기 비는 직경으로 계산한다:
-    s_other / s_me = (d_other / d_me)². 닿으면 큰 쪽이 먹으므로 나보다 크면 위협, 작으면 먹이.
+    자기 관측(자기 상태 + 시야 안 객체)만 쓴다. 관측이 주는 크기를 그대로 비교하고 (s_other / s_me),
+    경계면 거리를 재려고 직경 d(s) = 2·√(s/100) 만 따로 구한다. 닿으면 큰 쪽이 먹으므로 나보다 크면 위협, 작으면 먹이.
 
     Args:
         flee_gap: 위협과의 경계면 거리가 이보다 가까우면 도주 (돌진 가능하면 돌진)
@@ -54,11 +54,12 @@ class GreedyBot(Agent):
         rows = np.arange(b)
         s_me = obs.self_state[:, 0]
         d_me = DIAMETER_SCALE * np.sqrt(s_me / 100.0)[:, None]  # 직경 d = 2√(s/100)
-        dx, dy, d = obs.objects[..., 0], obs.objects[..., 1], obs.objects[..., 2]
+        dx, dy, s = obs.objects[..., 0], obs.objects[..., 1], obs.objects[..., 2]
+        d = DIAMETER_SCALE * np.sqrt(s / 100.0)  # 상대 직경
         r, theta = np.hypot(dx, dy), np.arctan2(dy, dx)
         kind = np.argmax(obs.objects[..., 3:7], axis=-1)  # 0 밥, 1 블랙홀, 2 화이트홀, 3 세포
         gap = np.where(obs.mask, r - 0.5 * (d + d_me), np.inf)  # 경계면 사이 거리
-        ratio = (d / d_me) ** 2  # s_other / s_me
+        ratio = s / s_me[:, None]  # s_other / s_me
 
         def nearest(m: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
             g = np.where(m, gap, np.inf)

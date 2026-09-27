@@ -1,7 +1,7 @@
 # 판 구성 — 대결장 참가자 목록을 이 파일 한 곳에서 관리한다 (위에서부터 세포 순서, 8명까지 권장)
 #
 # 참가자 지정
-#   bronze / silver / gold / diamond     봇 (agents/bots/<이름>.py)
+#   bronze / silver / gold / diamond     봇 (cell_arena 패키지 내장, cell_arena/bots/<이름>.py)
 #   submissions/kim.py                   학생 제출물 — 이름·색·가중치는 그 파일 안의 name / color / weights
 #   submissions/kim.py@kim_v2.pt         가중치 파일을 직접 지정
 #

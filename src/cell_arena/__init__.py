@@ -6,7 +6,7 @@
 - ``play``: 대결장·관전 화면·사람 조작·참가자 불러오기
 - ``StudentAgent``: 학생 에이전트 기반 클래스 (대결·저장 메소드는 잠겨 있다)
 
-환경은 특정 정책(봇 등)을 포함하지 않는다. 봇은 repo 의 agents/bots/ 에 학생 에이전트와 같은 형식으로 있다.
+환경 자체는 특정 정책(봇 등)에 의존하지 않는다. 연습용 봇은 ``cell_arena.bots`` 에 학생 에이전트와 같은 형식으로 들어 있다.
 """
 
 from cell_arena.hardware import configure_env

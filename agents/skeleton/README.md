@@ -57,12 +57,12 @@ lr: 3.0e-4
 | 필드 | 형태 | 내용 |
 |---|---|---|
 | `obs.self_state` | `(B, 5)` float32 | `[size, x, y, v_x, v_y]` — 크기, 맵 좌표 (0~100, 토러스), 속도. 두 모드 모두 준다 |
-| `obs.objects` | `(B, M, 7)` float32 | state 모드. 시야 안 객체 가까운 순 `[dx, dy, 직경, is_food, is_black_hole, is_white_hole, is_cell]` |
+| `obs.objects` | `(B, M, 7)` float32 | state 모드. 시야 안 객체 가까운 순 `[dx, dy, 크기, is_food, is_black_hole, is_white_hole, is_cell]` |
 | `obs.mask` | `(B, M)` bool | state 모드. 실제 객체 자리 True (나머지는 0 패딩) |
 | `obs.image` | `(B, 5, R, R)` uint8 | image 모드. 채널 `[food, black_hole, white_hole, other_cell, self]`, 값 0/1, `[채널, y, x]` |
 
 - 시야는 한 변 `2h` 인 정사각형, `h = min(8·√(size/100), 25)`. 이미지는 크기와 상관없이 R×R 이라 **클수록 넓고 거칠게** 본다.
-- 직경 `d = 2·√(size/100)` → 다른 세포 크기 `= 100·(d/2)²`. 세포밥(돌진할 때 흘린 밥)은 관측에서 밥과 같은 `food` 로 준다.
+- 객체의 `크기`는 원시 크기 그대로다 (직경이 아님). 직경이 필요하면 `d = 2·√(크기/100)`. 세포밥(돌진할 때 흘린 밥)은 관측에서 밥과 같은 `food` 로 준다.
 - 이미지: 픽셀 중심이 원 안이면 1, 픽셀보다 작은 객체도 중심 픽셀은 1. 채널마다 가까운 순으로 밥 128개, 홀·세포 16개까지 그린다.
 - **다른 세포의 속도는 주지 않는다** → 여러 프레임을 쌓거나 RNN. 전역 맵·시야 밖 정보도 없다. 봇도 똑같은 관측만 받는다.
 - `ObsSpec(mode="state", max_objects=32)`, `ObsSpec(mode="image", resolution=64)`.
@@ -108,5 +108,7 @@ lr: 3.0e-4
 
 ## 로그 (wandb)
 
-`wandb.init(...)` 과 `run.log({...}, step=...)` 는 직접 부른다. 처음 한 번 `wandb login`.
+스켈레톤의 `train()`에 기본 로깅이 이미 동작하는 코드로 들어 있다 (`reward_step`, `episode_return`, `size`,
+`deaths`, `samples_per_sec` — `log_every` 샘플마다 `run.log`). 프레임워크가 아니라 `agent.py` 안의 평범한 코드라
+loss·Q값·엔트로피 등 원하는 지표를 자유롭게 추가·수정한다. 처음 한 번 `wandb login`.
 인터넷이 없으면 `WANDB_MODE=offline python agents/kim/agent.py` 로 학습하고 나중에 `wandb sync wandb/offline-run-*`.

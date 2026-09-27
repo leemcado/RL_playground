@@ -24,18 +24,19 @@ def self_state(world: World, idx: int) -> jax.Array:
 
 
 def _candidates(world: World, idx: int, cfg: ArenaConfig) -> tuple[jax.Array, ...]:
-    """모든 객체·세포의 변위 (K, 2), 반지름, 종류, 거리, 가시 여부, 시야 반경 h."""
+    """모든 객체·세포의 변위 (K, 2), 반지름, 크기, 종류, 거리, 가시 여부, 시야 반경 h."""
     cells, obj = world.cells, world.objects
     n, m = cells.size.shape[0], obj.size.shape[0]
     center = cells.pos[idx]
     h = physics.vision_radius(cells.size[idx], cfg, jnp)
     delta = physics.torus_delta(jnp.concatenate([obj.pos, cells.pos]), center, cfg.map_size, jnp)
-    radius = physics.radius(jnp.concatenate([obj.size, cells.size]), cfg, jnp)
+    size = jnp.concatenate([obj.size, cells.size])
+    radius = physics.radius(size, cfg, jnp)
     kind = jnp.concatenate([object_kind(obj.type, jnp), jnp.full(n, KIND_CELL)]).at[m + idx].set(KIND_SELF)
     alive = jnp.concatenate([obj.alive, cells.alive])
     visible = alive & jnp.all(jnp.abs(delta) < (h + radius)[:, None], axis=-1)
     dist = jnp.linalg.norm(delta, axis=-1)
-    return delta, radius, kind, dist, visible, h
+    return delta, radius, size, kind, dist, visible, h
 
 
 def _nearest(dist: jax.Array, select: jax.Array, k: int) -> tuple[jax.Array, jax.Array]:
@@ -46,17 +47,15 @@ def _nearest(dist: jax.Array, select: jax.Array, k: int) -> tuple[jax.Array, jax
 
 def object_list(world: World, idx: int, cfg: ArenaConfig, max_objects: int) -> tuple[jax.Array, jax.Array]:
     """시야 안 객체 가까운 순 최대 M개. 반환 (M, 7) 피처, (M,) mask."""
-    delta, radius, kind, dist, visible, _ = _candidates(world, idx, cfg)
+    delta, _, size, kind, dist, visible, _ = _candidates(world, idx, cfg)
     order, valid = _nearest(dist, visible & (kind != KIND_SELF), max_objects)
-    feats = jnp.concatenate(
-        [delta[order], 2.0 * radius[order][:, None], jax.nn.one_hot(kind[order], 4, dtype=F32)], axis=-1
-    )
+    feats = jnp.concatenate([delta[order], size[order][:, None], jax.nn.one_hot(kind[order], 4, dtype=F32)], -1)
     return jnp.where(valid[:, None], feats, 0.0).astype(F32), valid
 
 
 def semantic_image(world: World, idx: int, cfg: ArenaConfig, resolution: int) -> jax.Array:
     """타입별 5채널 이미지 (5, R, R) uint8 — 채널마다 가까운 순 IMAGE_CHANNEL_CAPS 개."""
-    delta, radius, kind, dist, visible, h = _candidates(world, idx, cfg)
+    delta, radius, _, kind, dist, visible, h = _candidates(world, idx, cfg)
     channels = []
     for c, cap in enumerate(IMAGE_CHANNEL_CAPS):
         order, valid = _nearest(dist, visible & (kind == c), min(cap, dist.shape[0]))

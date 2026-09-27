@@ -1,12 +1,16 @@
 """참가자 지정 문자열 → Agent 인스턴스, 판 구성(configs/lineups.yaml) 읽기.
 
 지정 형식:
-- ``bronze``               봇 이름 → agents/bots/bronze.py
-- ``<경로>.py``            에이전트 파일 (현재 폴더 기준, 없으면 repo 기준). 파일 안에 Agent 하위 클래스가 하나여야 한다
+- ``bronze``               봇 이름 → cell_arena 패키지에 내장된 봇 (cell_arena/bots/bronze.py)
+- ``<경로>.py``            에이전트 파일 (현재 폴더 기준, 없으면 인스트럭터 레포 기준). 파일 안에 Agent 하위 클래스가 하나여야 한다
 - ``<경로>.py@<가중치>``   학생 에이전트의 가중치 파일을 직접 지정 (기본은 클래스의 ``weights``, 에이전트 파일 폴더 기준)
 
 학생 에이전트(StudentAgent)는 가중치 파일로 만든다 (``StudentAgent.load``). 봇은 인자 없이 만든다.
 에이전트 파일은 같은 폴더의 다른 파일을 import 할 수 있고, 파일끼리 같은 이름의 보조 파일이 있어도 섞이지 않는다.
+
+봇은 패키지 안(``BOTS_DIR``)에 있어 ``cell_arena`` 를 pip 로만 설치해도(학생 레포처럼 이 repo 소스가 없어도)
+이름으로 바로 찾는다. ``REPO_ROOT``/``LINEUPS_FILE`` 은 인스트럭터 레포 전용 기능(``.py`` 상대 경로 해석, 토너먼트
+구성 파일)이라 이 repo 밖에서 pip 설치됐을 때는 안 쓰인다 — 학생 쪽 경로(봇 이름, 자기 에이전트 파일)는 안 거친다.
 """
 
 from __future__ import annotations
@@ -22,7 +26,7 @@ import yaml
 from cell_arena.agent import Agent, StudentAgent
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-BOTS_DIR = REPO_ROOT / "agents" / "bots"
+BOTS_DIR = Path(__file__).resolve().parents[1] / "bots"
 LINEUPS_FILE = REPO_ROOT / "configs" / "lineups.yaml"
 
 

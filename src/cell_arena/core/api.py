@@ -21,7 +21,7 @@ ObsMode = Literal["state", "image"]
 ActionMode = Literal["discrete", "multibinary", "continuous"]
 
 SELF_FEATURES = ("size", "x", "y", "v_x", "v_y")
-OBJECT_FEATURES = ("dx", "dy", "diameter", "is_food", "is_black_hole", "is_white_hole", "is_cell")
+OBJECT_FEATURES = ("dx", "dy", "size", "is_food", "is_black_hole", "is_white_hole", "is_cell")
 IMAGE_CHANNELS = ("food", "black_hole", "white_hole", "other_cell", "self")
 NUM_DISCRETE_ACTIONS = 18
 # 이미지 채널별로 그리는 객체 수 상한 (가까운 순). JAX 판의 고정 shape 를 위한 값으로 두 엔진이 같은 규칙을 쓴다.
@@ -77,7 +77,7 @@ class Observation:
 
     Attributes:
         self_state: (B, 5) float32 — SELF_FEATURES [크기, x, y, v_x, v_y] 원시 값 (x, y 는 맵 좌표 0~100)
-        objects: (B, M, 7) float32 — state 모드. OBJECT_FEATURES [dx, dy, 직경, 타입 원핫 4]
+        objects: (B, M, 7) float32 — state 모드. OBJECT_FEATURES [dx, dy, 크기, 타입 원핫 4]
         mask: (B, M) bool — state 모드. 실제 객체 자리 True
         image: (B, 5, R, R) uint8 0/1 — image 모드. IMAGE_CHANNELS 순서, [채널, y, x]
     """
