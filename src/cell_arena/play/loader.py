@@ -18,6 +18,7 @@ from __future__ import annotations
 import importlib.util
 import inspect
 import sys
+import sysconfig
 from pathlib import Path
 from types import ModuleType
 
@@ -115,10 +116,20 @@ def _load_file(path: Path) -> ModuleType:
         sys.modules.pop(name, None)
         raise
     finally:
-        sys.path.remove(str(folder))
-        # 이 폴더에서 새로 불러온 보조 모듈은 캐시에서 빼서, 다른 파일의 같은 이름 보조 파일과 섞이지 않게 한다
+        package_dirs = {
+            Path(sysconfig.get_path(key)).resolve()
+            for key in ("purelib", "platlib")
+        }
+
         for mod_name in set(sys.modules) - before - {name}:
             mod_file = getattr(sys.modules[mod_name], "__file__", None)
-            if mod_file and Path(mod_file).resolve().is_relative_to(folder):
+            if not mod_file:
+                continue
+
+            mod_path = Path(mod_file).resolve()
+            if any(mod_path.is_relative_to(root) for root in package_dirs):
+                continue
+
+            if mod_path.is_relative_to(folder):
                 del sys.modules[mod_name]
     return module
