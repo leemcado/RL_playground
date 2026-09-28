@@ -1,6 +1,6 @@
 [project]
 name = "cell-arena"
-version = "2.0.0"
+version = "2.0.1"
 description = "Cell Arena — 강화학습 실습용 토러스 세포 대전 환경"
 requires-python = ">=3.10"
 dependencies = [
